@@ -158,8 +158,14 @@ fun MatchedResultScreen(
                         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp)
                     ) {
                         if (item.imagePath.isNotEmpty()) {
+                            // 支持 URL 和本地文件路径
+                            val imageModel = if (item.imagePath.startsWith("http")) {
+                                item.imagePath // URL 直接使用
+                            } else {
+                                File(item.imagePath) // 本地文件路径
+                            }
                             Image(
-                                painter = rememberAsyncImagePainter(File(item.imagePath)),
+                                painter = rememberAsyncImagePainter(imageModel),
                                 contentDescription = "物品图片",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop

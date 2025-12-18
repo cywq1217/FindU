@@ -2,6 +2,7 @@ package com.example.findu.repository
 
 import android.util.Log
 import com.example.findu.model.FoundItem
+import com.example.findu.model.ItemStatus
 import com.example.findu.model.LostItem
 import com.example.findu.model.Notification
 import com.example.findu.network.SupabaseClient
@@ -10,6 +11,8 @@ import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * Supabase 数据仓库
@@ -124,16 +127,18 @@ object SupabaseRepository {
     }
 
     // 查找特定类别且正在寻找中的遗失物品 (用于反向匹配)
+    // 注意：status 可能是 "SEARCHING" 或 null（数据库默认值），都视为正在寻找
     suspend fun getSearchingLostItems(category: String): List<LostItem> = withContext(Dispatchers.IO) {
         try {
-            SupabaseClient.client.from("lost_items")
+            val result = SupabaseClient.client.from("lost_items")
                 .select {
                     filter {
                         eq("category", category)
-                        eq("status", "SEARCHING")
                     }
                 }
                 .decodeList<LostItem>()
+            // 过滤：status 为 SEARCHING 或 null 都算是正在寻找中
+            result.filter { it.status == null || it.status == ItemStatus.SEARCHING }
         } catch (e: Exception) {
             Log.e(TAG, "Get searching lost items failed", e)
             emptyList()
@@ -170,8 +175,27 @@ object SupabaseRepository {
                     eq("id", id)
                 }
             }
+            Log.d(TAG, "Update lost item status success: $id -> $status")
         } catch (e: Exception) {
             Log.e(TAG, "Update lost item status failed", e)
+        }
+    }
+
+    // 更新拾得物品状态 (匹配成功后)
+    suspend fun updateFoundItemStatus(id: String, status: String) = withContext(Dispatchers.IO) {
+        try {
+            SupabaseClient.client.from("found_items").update(
+                {
+                    set("status", status)
+                }
+            ) {
+                filter {
+                    eq("id", id)
+                }
+            }
+            Log.d(TAG, "Update found item status success: $id -> $status")
+        } catch (e: Exception) {
+            Log.e(TAG, "Update found item status failed", e)
         }
     }
 
@@ -180,18 +204,21 @@ object SupabaseRepository {
     // 发送通知
     suspend fun insertNotification(notification: Notification) = withContext(Dispatchers.IO) {
         try {
-            // 手动构建要插入的数据，排除 ID，让数据库自增
-            val data = mapOf(
-                "user_id" to notification.userId,
-                "title" to notification.title,
-                "content" to notification.content,
-                "related_item_id" to notification.relatedItemId,
-                "is_read" to notification.isRead,
-                "timestamp" to notification.timestamp
-            )
+            Log.d(TAG, "Inserting notification for user: ${notification.userId}, title: ${notification.title}")
+            // 使用 JsonObject 构建要插入的数据，排除 ID，让数据库自增
+            val data = buildJsonObject {
+                put("user_id", notification.userId)
+                put("title", notification.title ?: "")
+                put("content", notification.content ?: "")
+                put("related_item_id", notification.relatedItemId ?: "")
+                put("is_read", notification.isRead ?: false)
+                put("timestamp", notification.timestamp ?: System.currentTimeMillis())
+            }
             SupabaseClient.client.from("notifications").insert(data)
+            Log.d(TAG, "Insert notification success for user: ${notification.userId}")
         } catch (e: Exception) {
-            Log.e(TAG, "Insert notification failed", e)
+            Log.e(TAG, "Insert notification failed: ${e.message}", e)
+            e.printStackTrace()
         }
     }
 
@@ -213,18 +240,18 @@ object SupabaseRepository {
     }
     
     // 获取未读通知数量
-    // 简化实现：直接获取未读列表并计算大小，避免使用 head/count 等可能存在兼容性问题的 API
+    // 注意：is_read 可能是 false 或 null，都视为未读
     suspend fun getUnreadCount(userId: String): Long = withContext(Dispatchers.IO) {
         try {
-            val unreadList = SupabaseClient.client.from("notifications")
+            val allNotifications = SupabaseClient.client.from("notifications")
                 .select { 
                     filter {
                         eq("user_id", userId)
-                        eq("is_read", false)
                     }
                 }
                 .decodeList<Notification>()
-            unreadList.size.toLong()
+            // 过滤：is_read 为 false 或 null 都算未读
+            allNotifications.count { it.isRead != true }.toLong()
         } catch (e: Exception) {
             Log.e(TAG, "Get unread count failed", e)
             0L
@@ -268,7 +295,7 @@ object SupabaseRepository {
     }
 
     // 获取用户资料
-    suspend fun getUserProfile(userId: String): Map<String, Any?>? = withContext(Dispatchers.IO) {
+    suspend fun getUserProfile(userId: String): Map<String, String?>? = withContext(Dispatchers.IO) {
         try {
             val result = SupabaseClient.client.from("users")
                 .select {
@@ -276,8 +303,18 @@ object SupabaseRepository {
                         eq("id", userId)
                     }
                 }
-                .decodeSingleOrNull<Map<String, Any?>>()
-            result
+                .decodeSingleOrNull<kotlinx.serialization.json.JsonObject>()
+            
+            if (result != null) {
+                mapOf(
+                    "id" to result["id"]?.toString()?.trim('"'),
+                    "username" to result["username"]?.toString()?.trim('"'),
+                    "phone" to result["phone"]?.toString()?.trim('"'),
+                    "email" to result["email"]?.toString()?.trim('"')
+                )
+            } else {
+                null
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Get user profile failed", e)
             null

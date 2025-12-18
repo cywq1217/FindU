@@ -24,6 +24,6 @@ data class FoundItem(
     val longitude: Double, // 经度（保留5位小数）
     @SerialName("pick_up_time") val pickUpTime: Long, // 拾得时间（时间戳）
     @SerialName("submit_time") val submitTime: Long = System.currentTimeMillis(), // 提交时间
-    val status: ItemStatus = ItemStatus.SEARCHING, // 状态
-    @SerialName("is_synced") val isSynced: Boolean = false // 是否已同步到服务器
+    val status: ItemStatus? = ItemStatus.SEARCHING, // 状态（可空，兼容 Supabase null 值）
+    @SerialName("is_synced") val isSynced: Boolean? = false // 是否已同步到服务器（可空，兼容 Supabase null 值）
 )

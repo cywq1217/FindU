@@ -21,6 +21,6 @@ data class LostItem(
     val latitude: Double, // 最后出现位置纬度
     val longitude: Double, // 最后出现位置经度
     @SerialName("submit_time") val submitTime: Long = System.currentTimeMillis(), // 提交时间
-    val status: ItemStatus = ItemStatus.SEARCHING, // 状态
+    val status: ItemStatus? = ItemStatus.SEARCHING, // 状态（可空，兼容 Supabase null 值）
     @SerialName("matched_found_item_id") val matchedFoundItemId: String? = null // 匹配到的物品ID
 )

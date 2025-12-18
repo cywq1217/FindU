@@ -31,9 +31,8 @@ class MessageViewModel(private val context: Context, private val userId: String)
             _messages.value = notificationList
             
             // 计算未读数
-            // 注意：因为 Supabase 是远程请求，我们这里简单地通过过滤 list 来计算，
-            // 或者再次调用 getUnreadCount。为了性能，直接从 list 过滤即可。
-            _unreadCount.value = notificationList.count { !it.isRead }.toLong()
+            // 注意：is_read 可能是 false 或 null，都视为未读
+            _unreadCount.value = notificationList.count { it.isRead != true }.toLong()
         }
     }
 
@@ -46,7 +45,7 @@ class MessageViewModel(private val context: Context, private val userId: String)
             _messages.value = _messages.value.map { 
                 if (it.id == notificationId) it.copy(isRead = true) else it 
             }
-            _unreadCount.value = _messages.value.count { !it.isRead }.toLong()
+            _unreadCount.value = _messages.value.count { it.isRead != true }.toLong()
         }
     }
 }

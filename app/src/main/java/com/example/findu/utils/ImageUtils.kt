@@ -25,6 +25,25 @@ object ImageUtils {
         )
     }
 
+    // 将 content URI 复制到应用私有目录
+    fun copyUriToFile(context: Context, uri: Uri): File? {
+        return try {
+            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.CHINA).format(Date())
+            val storageDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+            val destFile = File(storageDir, "IMG_${timeStamp}.jpg")
+            
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                FileOutputStream(destFile).use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+            }
+            destFile
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
     // 启动相机
     fun launchCamera(context: Context, cameraLauncher: ActivityResultLauncher<Uri>): File {
         val imageFile = createTempImageFile(context)

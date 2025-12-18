@@ -37,6 +37,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -73,6 +74,11 @@ fun ProfileScreen(
     val currentUser by viewModel.currentUser.collectAsState()
     
     var selectedTab by remember { mutableIntStateOf(0) }
+    
+    // 每次进入页面时自动刷新数据
+    LaunchedEffect(Unit) {
+        viewModel.refreshData()
+    }
 
     Scaffold(
         topBar = {
@@ -301,11 +307,12 @@ fun FoundItemCard(item: FoundItem, onClick: () -> Unit) {
 }
 
 @Composable
-fun StatusBadge(status: ItemStatus) {
+fun StatusBadge(status: ItemStatus?) {
     val (text, color) = when (status) {
         ItemStatus.SEARCHING -> "寻找中" to Color.Gray
         ItemStatus.MATCHED -> "已匹配" to Color(0xFF4CAF50) // Green
         ItemStatus.COMPLETED -> "已完成" to Color.Blue
+        null -> "寻找中" to Color.Gray // 默认状态
     }
     
     Box(

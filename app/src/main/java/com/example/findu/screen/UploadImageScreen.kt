@@ -1,8 +1,12 @@
 package com.example.findu.screen
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -71,18 +75,33 @@ fun UploadImageScreen(
             }
         }
     }
+    
+    // 相机权限请求器
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // 权限已授予，启动相机
+            val imageFile = ImageUtils.launchCamera(context, cameraLauncher)
+            imagePath = imageFile.absolutePath
+        } else {
+            Toast.makeText(context, "需要相机权限才能拍照", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // 相册选择器
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            imageUri = it
-            // 这里需要处理从相册选择的图片保存到本地，暂时模拟一个路径
-             // 实际项目中应该将 uri 复制到应用私有目录
-             // val file = ImageUtils.uriToFile(context, it)
-             // imagePath = file.absolutePath
-             imagePath = it.path // 仅作示例，这可能不是真实文件路径
+            // 将图片复制到应用私有目录，获取真实文件路径
+            val file = ImageUtils.copyUriToFile(context, it)
+            if (file != null) {
+                imagePath = file.absolutePath
+                imageUri = Uri.fromFile(file)
+            } else {
+                Toast.makeText(context, "图片处理失败", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -157,11 +176,18 @@ fun UploadImageScreen(
             ) {
                 Button(
                     onClick = {
-                        val imageFile = ImageUtils.launchCamera(context, cameraLauncher)
-                        imagePath = imageFile.absolutePath
-                        // 这里不需要设置 imageUri，因为 TakePicture contract 成功后会自动写入
-                        // 我们需要在 callback 中设置 imageUri 来刷新 UI，
-                        // 但因为 launchCamera 返回了 file，我们可以提前构建 uri 用于预览（可选）
+                        // 检查相机权限
+                        when {
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED -> {
+                                // 已有权限，直接启动相机
+                                val imageFile = ImageUtils.launchCamera(context, cameraLauncher)
+                                imagePath = imageFile.absolutePath
+                            }
+                            else -> {
+                                // 请求权限
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        }
                     },
                     modifier = Modifier.weight(1f)
                 ) {

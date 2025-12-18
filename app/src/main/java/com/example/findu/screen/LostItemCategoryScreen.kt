@@ -158,8 +158,8 @@ fun LostCategoryCard(
             pressedElevation = 0.dp
         ),
         colors = CardDefaults.cardColors(
-            // 遗失端使用稍微不同的色调 (蓝色系容器背景)，以示区分
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+            // 与拾得端相同结构，使用 surface 背景色
+            containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Column(
@@ -171,7 +171,8 @@ fun LostCategoryCard(
                 modifier = Modifier
                     .size(64.dp)
                     .background(
-                        color = MaterialTheme.colorScheme.tertiaryContainer, // 较深的背景
+                        // 蓝色系圆形背景，与拾得端橙色区分
+                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f),
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
